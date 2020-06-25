@@ -1,6 +1,12 @@
 Mumble - A voice chat utility for gamers
 =======================================
 
+This is an update of [this](https://github.com/Johni0702/mumble) fork of Mumble, which implements secret channels. Original README:
+
+> This fork of Mumble (Murmur specifically) adds support for "secret" channels. Only users who are inside a secret channel will be able to see who else is. For everyone else it looks like as if all users in the secret channel are actually in some other channel. A channel can be marked as secret by adding an empty group named "members hidden" to it and linking it to the channel where its own members should appear for everyone who's not a member.
+
+> The original use case for this feature is in conjunction with mumo-gmod for playing TTT. This way everyone alive has no clue who's dead while dead people can hear everyone alive and also talk among themselves.
+
 [![Build Status](https://dev.azure.com/Mumble-VoIP/Mumble/_apis/build/status/Mumble-CI?branchName=master)](https://dev.azure.com/Mumble-VoIP/Mumble/_build/latest?definitionId=1?branchName=master)
 
 > *http://mumble.info/*  
