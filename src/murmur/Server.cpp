@@ -1647,11 +1647,11 @@ void Server::removeChannel(Channel *chan, Channel *dest) {
 		while (target->cParent && (! hasPermission(static_cast<ServerUser *>(p), target, ChanACL::Enter) || isChannelFull(target, static_cast<ServerUser *>(p))))
 			target = target->cParent;
 
-		MumbleProto::UserState mpus;
-		mpus.set_session(p->uiSession);
-		mpus.set_channel_id(target->iId);
-		userEnterChannel(p, target, mpus);
-		sendAll(mpus);
+		/* MumbleProto::UserState mpus; */
+		/* mpus.set_session(p->uiSession); */
+		/* mpus.set_channel_id(target->iId); */
+		userEnterChannel(p, target, NULL);
+		/* sendAll(mpus); */
 		emit userStateChanged(p);
 	}
 
@@ -1712,9 +1712,17 @@ bool Server::unregisterUser(int id) {
 	return true;
 }
 
-void Server::userEnterChannel(User *p, Channel *c, MumbleProto::UserState &mpus) {
+void Server::userEnterChannel(User *p, Channel *c, User *actor) {
 	if (p->cChannel == c)
 		return;
+
+    Channel *srcChannel = p->cChannel;
+	Channel *dstChannel = c;
+
+	MumbleProto::UserState realMove;
+	realMove.set_session(p->uiSession);
+	if (actor) realMove.set_actor(actor->uiSession);
+	realMove.set_channel_id(dstChannel->iId);
 
 	Channel *old = p->cChannel;
 
@@ -1728,7 +1736,7 @@ void Server::userEnterChannel(User *p, Channel *c, MumbleProto::UserState &mpus)
 		if (mayspeak == sup) {
 			// Ok, he can speak and was suppressed, or vice versa
 			p->bSuppress = ! mayspeak;
-			mpus.set_suppress(p->bSuppress);
+            realMove.set_suppress(p->bSuppress);
 		}
 	}
 
@@ -1742,6 +1750,41 @@ void Server::userEnterChannel(User *p, Channel *c, MumbleProto::UserState &mpus)
 	sendClientPermission(static_cast<ServerUser *>(p), c);
 	if (c->cParent)
 		sendClientPermission(static_cast<ServerUser *>(p), c->cParent);
+
+    bool srcSecret = srcChannel && srcChannel->isSecret();
+	bool dstSecret = dstChannel->isSecret();
+	if (dstSecret || srcSecret) {
+		MumbleProto::UserState fakeMove;
+		fakeMove.set_session(p->uiSession);
+		if (actor) fakeMove.set_actor(actor->uiSession);
+		fakeMove.set_channel_id(dstChannel->getSecretLinked()->iId);
+
+		foreach(ServerUser *u, qhUsers) {
+			if (dstSecret && u->cChannel == dstChannel) {
+				sendMessage(u, realMove);
+			} else {
+				sendMessage(u, fakeMove);
+			}
+		}
+		if (dstSecret) {
+			MumbleProto::UserState other;
+			other.set_channel_id(dstChannel->iId);
+			foreach(User *u, dstChannel->qlUsers) {
+				other.set_session(u->uiSession);
+				sendMessage(static_cast<ServerUser *>(p), other);
+			}
+		}
+		if (srcSecret) {
+			MumbleProto::UserState other;
+			other.set_channel_id(srcChannel->getSecretLinked()->iId);
+			foreach(User *u, srcChannel->qlUsers) {
+				other.set_session(u->uiSession);
+				sendMessage(static_cast<ServerUser *>(p), other);
+			}
+		}
+	} else {
+		sendAll(realMove);
+	}
 }
 
 bool Server::hasPermission(ServerUser *p, Channel *c, QFlags<ChanACL::Perm> perm) {

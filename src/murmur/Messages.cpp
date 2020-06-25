@@ -283,8 +283,6 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 	// Transmit user profile
 	MumbleProto::UserState mpus;
 
-	userEnterChannel(uSource, lc, mpus);
-
 	{
 		QWriteLocker wl(&qrwlVoiceThread);
 		uSource->sState = ServerUser::Authenticated;
@@ -313,8 +311,10 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 	}
 	if (! uSource->qsHash.isEmpty())
 		mpus.set_hash(u8(uSource->qsHash));
-	if (uSource->cChannel->iId != 0)
-		mpus.set_channel_id(uSource->cChannel->iId);
+	/* if (uSource->cChannel->iId != 0) */
+	/* 	mpus.set_channel_id(uSource->cChannel->iId); */
+    if (lc->iId != 0 || lc->isSecret())
+		mpus.set_channel_id(lc->getSecretLinked()->iId);
 
 	sendAll(mpus, 0x010202);
 
@@ -323,6 +323,17 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 	if (! uSource->qsComment.isEmpty())
 		mpus.set_comment(u8(uSource->qsComment));
 	sendAll(mpus, ~ 0x010202);
+
+    if (lc->isSecret()) {
+		mpus.Clear();
+		mpus.set_session(uSource->uiSession);
+		mpus.set_channel_id(lc->iId);
+		foreach(User *u, lc->qlUsers) {
+			sendMessage(static_cast<ServerUser *>(u), mpus);
+		}
+	}
+
+	userEnterChannel(uSource, lc, uSource);
 
 	// Transmit other users profiles
 	foreach(ServerUser *u, qhUsers) {
@@ -346,7 +357,7 @@ void Server::msgAuthenticate(ServerUser *uSource, MumbleProto::Authenticate &msg
 			mpus.set_texture(blob(u->qbaTexture));
 		}
 		if (u->cChannel->iId != 0)
-			mpus.set_channel_id(u->cChannel->iId);
+            mpus.set_channel_id((lc == u->cChannel ? lc : u->cChannel->getSecretLinked())->iId);
 		if (u->bDeaf)
 			mpus.set_deaf(true);
 		else if (u->bMute)
@@ -727,13 +738,13 @@ void Server::msgUserState(ServerUser *uSource, MumbleProto::UserState &msg) {
 		bBroadcast = true;
 	}
 
-	if (msg.has_channel_id()) {
-		Channel *c = qhChannels.value(msg.channel_id());
+	/* if (msg.has_channel_id()) { */
+	/* 	Channel *c = qhChannels.value(msg.channel_id()); */
 
-		userEnterChannel(pDstServerUser, c, msg);
-		log(uSource, QString("Moved %1 to %2").arg(QString(*pDstServerUser), QString(*c)));
-		bBroadcast = true;
-	}
+	/* 	userEnterChannel(pDstServerUser, c, msg); */
+	/* 	log(uSource, QString("Moved %1 to %2").arg(QString(*pDstServerUser), QString(*c))); */
+	/* 	bBroadcast = true; */
+	/* } */
 
 	bool bDstAclChanged = false;
 	if (msg.has_user_id()) {
@@ -756,6 +767,10 @@ void Server::msgUserState(ServerUser *uSource, MumbleProto::UserState &msg) {
 		}
 		bBroadcast = true;
 	}
+
+    bool hasChannelId = msg.has_channel_id();
+	unsigned int channelId = hasChannelId ? msg.channel_id() : 0;
+	msg.clear_channel_id();
 
 	if (bBroadcast) {
 		// Texture handling for clients < 1.2.2.
@@ -786,6 +801,13 @@ void Server::msgUserState(ServerUser *uSource, MumbleProto::UserState &msg) {
 
 		if (bDstAclChanged)
 			clearACLCache(pDstServerUser);
+	}
+
+    if (hasChannelId) {
+		Channel *c = qhChannels.value(channelId);
+
+		userEnterChannel(pDstServerUser, c, uSource);
+		log(uSource, QString("Moved %1 to %2").arg(QString(*pDstServerUser), QString(*c)));
 	}
 
 	emit userStateChanged(pDstServerUser);
@@ -964,11 +986,12 @@ void Server::msgChannelState(ServerUser *uSource, MumbleProto::ChannelState &msg
 
 		if (c->bTemporary) {
 			// If a temporary channel has been created move the creator right in there
-			MumbleProto::UserState mpus;
-			mpus.set_session(uSource->uiSession);
-			mpus.set_channel_id(c->iId);
-			userEnterChannel(uSource, c, mpus);
-			sendAll(mpus);
+			/* MumbleProto::UserState mpus; */
+			/* mpus.set_session(uSource->uiSession); */
+			/* mpus.set_channel_id(c->iId); */
+			/* userEnterChannel(uSource, c, mpus); */
+			/* sendAll(mpus); */
+            userEnterChannel(uSource, c, NULL);
 			emit userStateChanged(uSource);
 		}
 	} else {

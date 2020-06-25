@@ -64,11 +64,11 @@ void Server::setUserState(User *pUser, Channel *cChannel, bool mute, bool deaf, 
 	pUser->qsName = name;
 	hashAssign(pUser->qsComment, pUser->qbaCommentHash, comment);
 
-	if (cChannel != pUser->cChannel) {
-		changed = true;
-		mpus.set_channel_id(cChannel->iId);
-		userEnterChannel(pUser, cChannel, mpus);
-	}
+	/* if (cChannel != pUser->cChannel) { */
+	/* 	changed = true; */
+	/* 	mpus.set_channel_id(cChannel->iId); */
+	/* 	userEnterChannel(pUser, cChannel, mpus); */
+	/* } */
 
 	if (changed) {
 		sendAll(mpus, ~ 0x010202);
@@ -76,8 +76,16 @@ void Server::setUserState(User *pUser, Channel *cChannel, bool mute, bool deaf, 
 			mpus.clear_comment();
 			mpus.set_comment_hash(blob(pUser->qbaCommentHash));
 		}
-		sendAll(mpus, 0x010202);
+        sendAll(mpus, 0x010202);
+    }
 
+	if (cChannel != pUser->cChannel) {
+		changed = true;
+
+		userEnterChannel(pUser, cChannel, NULL);
+	}
+
+	if (changed) {
 		emit userStateChanged(pUser);
 	}
 }

@@ -76,6 +76,10 @@ class Channel : public QObject {
 		void addUser(User *p);
 		void removeUser(User *p);
 
+        bool isSecret();
+		Channel *getSecretLinked();
+
+
 		bool isLinked(Channel *c) const;
 		void link(Channel *c);
 		void unlink(Channel *c = NULL);

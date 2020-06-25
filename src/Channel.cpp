@@ -83,6 +83,14 @@ bool Channel::lessThan(const Channel *first, const Channel *second) {
 		return QString::localeAwareCompare(first->qsName, second->qsName) < 0;
 }
 
+bool Channel::isSecret() {
+	return qhGroups.contains("members hidden");
+}
+
+Channel* Channel::getSecretLinked() {
+	return qsPermLinks.isEmpty() || !isSecret() ? this : *qsPermLinks.begin();
+}
+
 bool Channel::isLinked(Channel *l) const {
 	return ((l == this) || qhLinks.contains(l));
 }
